@@ -134,9 +134,6 @@ lines(dens_obs, lwd = 3, col = "red")
 sum(NHANES$BPSysAve < 80, na.rm = TRUE)/length(NHANES$BPSysAve)*100 
 
 
-# TODO--------
-# Simuliere aus beta_1 phy Yes... und No sepa Prior für die Differenz direkt...
-
 # SEED/filter/prepare-------------
 set.seed(125)
 
@@ -461,7 +458,7 @@ run_nhanes_physactive <- function(seed,
   Age_mean <- mean(df0$Age, na.rm = TRUE)
   df0 <- as.data.frame(df0)
   
-  # ---- error catcher: if quap (or prior function) fails -> return NULL + no save ----
+  # ---- error catcher: if quap (or prior function) fails -> return NULL + no save 
   m <- tryCatch(
     {
       switch(
@@ -648,19 +645,38 @@ ggplot(tab_plot, aes(x = prior, y = mean)) +
 
 
 # Compare with lm()------------
-df$Age_centered <- df$Age - Age_mean
-lm_fit <- lm(BPSysAve ~ PhysActive + Age_centered + Gender,
-             data = df)
-check_model(lm_fit) 
-check_model(lm_fit, check = "pp_check") # maybe improve a little...
-qqPlot(lm_fit) # ok
+coef_vec_physAct <- numeric(15)
+# HERE--------
+for(i in 1:15) {
+  set.seed(100 + i)
+  df <- NHANES %>%
+    dplyr::filter(Age >= 20) %>%
+    dplyr::sample_n(50) %>%
+    dplyr::filter(BPSysAve < 180)
+  df$Age_centered <- df$Age - Age_mean
+  lm_fit <- lm(BPSysAve ~ PhysActive + Age_centered + Gender,
+               data = df)
+  #check_model(lm_fit) 
+  #check_model(lm_fit, check = "pp_check") # maybe improve a little...
+  #qqPlot(lm_fit) # ok
+  
+  #plot(residuals(lm_fit) ~ fitted(lm_fit)) # not so bad
+  #abline(h = 0, col = "red", lwd = 2)
+  
+  #summary(lm_fit)
+  coef_vec_physAct[i] <- coef(lm_fit)[2] # 2.9543297
+  #confint(lm_fit, level = 0.89) # -4.6437203  10.5523796
+}
+  
+hist(coef_vec_physAct, breaks = 30, 
+     main = "Distribution of Estimated Effect of PhysActive on BPSysAve (lm)", 
+     xlab = "Estimated Coefficient for PhysActive (Yes vs. No)", 
+     col = "lightblue")
+boxplot(coef_vec_physAct, 
+        main = "Boxplot of Estimated Effect of PhysActive on BPSysAve (lm)", 
+        ylab = "Estimated Coefficient for PhysActive (Yes vs. No)", 
+        col = "lightblue")
 
-plot(residuals(lm_fit) ~ fitted(lm_fit)) # not so bad
-abline(h = 0, col = "red", lwd = 2)
-
-summary(lm_fit)
-coef(lm_fit) # 2.9543297
-confint(lm_fit, level = 0.89) # -4.6437203  10.5523796
 
 # _What if we add BMI?-------------
 # BMI is on a pipe between PhysActive and BPSysAve 
